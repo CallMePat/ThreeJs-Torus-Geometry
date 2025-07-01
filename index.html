@@ -3,22 +3,229 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ThreeJs Torus Geometry</title>
+    <title>ThreeJs Multi-Geometry Viewer</title>
     <style>
       body {
         margin: 0;
+        background: #000;
+        overflow: hidden;
+      }
+      .instruction-panel {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: white;
+        font-family: 'Arial', sans-serif;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        max-width: 250px;
+      }
+      .instruction-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #00ccff;
+      }
+      .instruction-text {
+        font-size: 14px;
+        line-height: 1.4;
+        margin-bottom: 8px;
+      }
+      .controls-info {
+        font-size: 12px;
+        color: #aaa;
+        margin-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 8px;
+      }
+      .geometry-selector {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+      }
+      .geometry-btn {
+        display: block;
+        margin: 5px 0;
+        padding: 8px 15px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        transition: all 0.3s ease;
+      }
+      .geometry-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: #00ccff;
+      }
+      .geometry-btn.active {
+        background: #00ccff;
+        border-color: #00ccff;
+        color: black;
       }
     </style>
     <script type="importmap">
-			{
-				"imports": {
-					"three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
           "jsm/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
         }
-			}
-		</script>
+      }
+    </script>
   </head>
   <body>
-    <script type="module" src="index.js"></script>
+    <div class="instruction-panel">
+      <div class="instruction-title">🎮 Controls</div>
+      <div class="instruction-text">• <strong>Left Click + Drag:</strong> Rotate view</div>
+      <div class="instruction-text">• <strong>Right Click + Drag:</strong> Pan camera</div>
+      <div class="instruction-text">• <strong>Mouse Wheel:</strong> Zoom in/out</div>
+      <div class="controls-info">
+        Use the buttons on the right to switch between different 3D shapes!
+      </div>
+    </div>
+
+    <div class="geometry-selector">
+      <button class="geometry-btn active" data-geometry="torus">Torus</button>
+      <button class="geometry-btn" data-geometry="icosahedron">Icosahedron</button>
+      <button class="geometry-btn" data-geometry="cube">Cube</button>
+      <button class="geometry-btn" data-geometry="sphere">Sphere</button>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "jsm/controls/OrbitControls.js";
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(w, h);
+      renderer.setClearColor(0x000000);
+      document.body.appendChild(renderer.domElement);
+
+      const fov = 75;
+      const aspect = w / h;
+      const near = 0.1;
+      const far = 10;
+
+      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      camera.position.z = 3;
+
+      const scene = new THREE.Scene();
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.03;
+
+      // Define geometries and their colors
+      const geometries = {
+        torus: {
+          geometry: new THREE.TorusGeometry(0.7, 0.3, 16, 100),
+          color: 0x00ccff,
+          wireColor: 0x0099cc
+        },
+        icosahedron: {
+          geometry: new THREE.IcosahedronGeometry(1.0, 2),
+          color: 0xff6b6b,
+          wireColor: 0xcc5555
+        },
+        cube: {
+          geometry: new THREE.BoxGeometry(1.2, 1.2, 1.2),
+          color: 0x4ecdc4,
+          wireColor: 0x3ba39c
+        },
+        sphere: {
+          geometry: new THREE.SphereGeometry(1, 32, 32),
+          color: 0xffe66d,
+          wireColor: 0xccb955
+        }
+      };
+
+      let currentMesh = null;
+      let currentWireMesh = null;
+
+      function createMesh(geometryData) {
+        // Remove existing mesh
+        if (currentMesh) {
+          scene.remove(currentMesh);
+          if (currentWireMesh) {
+            currentMesh.remove(currentWireMesh);
+          }
+        }
+
+        // Create new mesh
+        const mat = new THREE.MeshStandardMaterial({
+          color: geometryData.color,
+          flatShading: true,
+        });
+        
+        currentMesh = new THREE.Mesh(geometryData.geometry, mat);
+        scene.add(currentMesh);
+
+        // Create wireframe
+        const wireMat = new THREE.MeshBasicMaterial({
+          color: geometryData.wireColor,
+          wireframe: true
+        });
+
+        currentWireMesh = new THREE.Mesh(geometryData.geometry, wireMat);
+        currentMesh.add(currentWireMesh);
+        currentWireMesh.scale.setScalar(1.001);
+      }
+
+      // Initialize with torus
+      createMesh(geometries.torus);
+
+      // Add lighting
+      const hemiLight = new THREE.HemisphereLight(0x0099ff, 0xaa5500, 1);
+      scene.add(hemiLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      directionalLight.position.set(5, 5, 5);
+      scene.add(directionalLight);
+
+      // Handle geometry switching
+      const buttons = document.querySelectorAll('.geometry-btn');
+      buttons.forEach(button => {
+        button.addEventListener('click', () => {
+          // Remove active class from all buttons
+          buttons.forEach(btn => btn.classList.remove('active'));
+          // Add active class to clicked button
+          button.classList.add('active');
+          
+          const geometryType = button.getAttribute('data-geometry');
+          createMesh(geometries[geometryType]);
+        });
+      });
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        const newW = window.innerWidth;
+        const newH = window.innerHeight;
+        
+        camera.aspect = newW / newH;
+        camera.updateProjectionMatrix();
+        renderer.setSize(newW, newH);
+      });
+
+      function animate(t = 0) {
+        requestAnimationFrame(animate);
+        
+        if (currentMesh) {
+          currentMesh.rotation.y = t * 0.0001;
+          currentMesh.rotation.x = t * 0.00005;
+        }
+        
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    </script>
   </body>
 </html>
